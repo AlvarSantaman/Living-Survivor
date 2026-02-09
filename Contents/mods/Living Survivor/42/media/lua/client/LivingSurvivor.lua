@@ -11,6 +11,10 @@ local currentTranslations = nil
 -- Estados anteriores de todos los moodles para detectar cambios
 local previousMoodleLevels = {}
 
+-- Cooldown para Panic nivel 1 (timestamp en segundos reales)
+local panicLevel1LastTime = 0
+local PANIC_LEVEL1_COOLDOWN = 10 -- segundos
+
 -- Definición de claves para cada moodle
 local moodleThoughtKeys = {
     ["Endurance"] = {
@@ -56,7 +60,7 @@ local moodleThoughtKeys = {
         [4] = {"Hungry_4_1", "Hungry_4_2", "Hungry_4_3"}
     },
     ["Panic"] = {
-        [1] = {"Panic_1_1", "Panic_1_2"},
+        [1] = {"Panic_1_1", "Panic_1_2", "Panic_1_3"},
         [2] = {"Panic_2_1", "Panic_2_2", "Panic_2_3"},
         [3] = {"Panic_3_1", "Panic_3_2", "Panic_3_3"},
         [4] = {"Panic_4_1", "Panic_4_2", "Panic_4_3"}
@@ -187,15 +191,29 @@ local function onPlayerUpdate()
         
         -- Solo mostrar pensamiento si el nivel SUBE (no cuando baja)
         if currentLevel > previousLevel and currentLevel > 0 then
-            local levelKeys = thoughtKeys[currentLevel]
-            if levelKeys and #levelKeys > 0 then
-                -- Seleccionar clave aleatoria del grado actual
-                local randomKey = levelKeys[ZombRand(#levelKeys) + 1]
-                
-                -- Obtener texto traducido desde la tabla de idioma
-                local thoughtText = currentTranslations[randomKey] or randomKey
-                
-                showThought(thoughtText)
+            
+            -- Aplicar cooldown solo para Panic nivel 1
+            local shouldShow = true
+            if moodleName == "Panic" and currentLevel == 1 then
+                local currentTime = os.time()
+                if currentTime - panicLevel1LastTime < PANIC_LEVEL1_COOLDOWN then
+                    shouldShow = false
+                else
+                    panicLevel1LastTime = currentTime
+                end
+            end
+            
+            if shouldShow then
+                local levelKeys = thoughtKeys[currentLevel]
+                if levelKeys and #levelKeys > 0 then
+                    -- Seleccionar clave aleatoria del grado actual
+                    local randomKey = levelKeys[ZombRand(#levelKeys) + 1]
+                    
+                    -- Obtener texto traducido desde la tabla de idioma
+                    local thoughtText = currentTranslations[randomKey] or randomKey
+                    
+                    showThought(thoughtText)
+                end
             end
         end
         
@@ -224,6 +242,7 @@ end
 local function onGameStart()
     player = getPlayer()
     previousMoodleLevels = {} -- Reset al iniciar
+    panicLevel1LastTime = 0 -- Reset del cooldown de Panic
 
     -- Detectar idioma del juego y cargar traducciones
     local lang = "EN"

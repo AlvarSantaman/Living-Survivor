@@ -97,6 +97,7 @@ LivingSurvivorLang["EN"] = {
 
     Panic_1_1 = "Shit",
     Panic_1_2 = "Fuck",
+    Panic_1_3 = "Bad business",
     Panic_2_1 = "I'm really scared",
     Panic_2_2 = "This is really bad",
     Panic_2_3 = "I can't handle this",
@@ -383,6 +384,7 @@ LivingSurvivorLang["ES"] = {
 
     Panic_1_1 = "Mierda",
     Panic_1_2 = "Joder",
+    Panic_1_3 = "Mal asunto",
     Panic_2_1 = "Tengo mucho miedo",
     Panic_2_2 = "Esto es muy malo",
     Panic_2_3 = "No puedo con esto",
