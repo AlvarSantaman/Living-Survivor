@@ -4,6 +4,8 @@
 LivingSurvivorLang = {}
 
 LivingSurvivorLang["EN"] = {
+
+    -- Moodle thoughts
     Endurance_1_1 = "Breathe...",
     Endurance_1_2 = "I can hold on a bit more",
     Endurance_1_3 = "Focus on surviving",
@@ -288,9 +290,26 @@ LivingSurvivorLang["EN"] = {
     NoxiousSmell_4_1 = "I can't breathe properly, this is terrible",
     NoxiousSmell_4_2 = "I can't take it anymore, I think I'm going to pass out",
     NoxiousSmell_4_3 = "I have to get out of here now",
+
+    -- Reading thoughts
+    SkillBook_1 = "I learned something useful",
+    SkillBook_2 = "Knowledge is power in this world",
+    SkillBook_3 = "This will help me survive",
+    SkillBook_4 = "I should practice this",
+    
+    RecipeBook_1 = "Now I know how to make this",
+    RecipeBook_2 = "This recipe could be useful",
+    RecipeBook_3 = "I'll try this when I can",
+    
+    Novel_1 = "That was a good read",
+    Novel_2 = "At least I distracted myself for a while",
+    Novel_3 = "I needed that mental break",
+    Novel_4 = "That helped clear my mind",
 }
 
 LivingSurvivorLang["ES"] = {
+
+    -- Moodle thoughts
     Endurance_1_1 = "Respira...",
     Endurance_1_2 = "Aguanto un poco mas",
     Endurance_1_3 = "Concentrate en sobrevivir",
@@ -575,6 +594,21 @@ LivingSurvivorLang["ES"] = {
     NoxiousSmell_4_1 = "No puedo respirar bien, esto es terrible",
     NoxiousSmell_4_2 = "No aguanto mas, creo que me voy a desmayar",
     NoxiousSmell_4_3 = "Tengo que salir de aqui ya",
+
+    -- Reading thoughts
+    SkillBook_1 = "He aprendido algo util",
+    SkillBook_2 = "El conocimiento es poder en este mundo",
+    SkillBook_3 = "Esto me ayudara a sobrevivir",
+    SkillBook_4 = "Deberia practicar esto",
+    
+    RecipeBook_1 = "Ahora se como hacer esto",
+    RecipeBook_2 = "Esta receta podria ser util",
+    RecipeBook_3 = "Lo probare cuando pueda",
+    
+    Novel_1 = "Ha sido una buena lectura",
+    Novel_2 = "Al menos me he distraido un rato",
+    Novel_3 = "Necesitaba ese descanso mental",
+    Novel_4 = "Eso me ha ayudado a despejarme",
 }
 
 -- Alias para variantes de español (sin duplicar memoria)

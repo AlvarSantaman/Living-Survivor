@@ -151,6 +151,13 @@ local moodleThoughtKeys = {
     }
 }
 
+-- Definición de claves para pensamientos de lectura
+local readingThoughtKeys = {
+    ["SkillBook"] = {"SkillBook_1", "SkillBook_2", "SkillBook_3", "SkillBook_4"},
+    ["RecipeBook"] = {"RecipeBook_1", "RecipeBook_2", "RecipeBook_3"},
+    ["Novel"] = {"Novel_1", "Novel_2", "Novel_3", "Novel_4"}
+}
+
 -- Función para mostrar un pensamiento sobre el personaje
 local function showThought(text)
     if not player then return end
@@ -178,6 +185,48 @@ local function getMoodleLevel(moodleName)
     end
     
     return 0
+end
+
+-- Función para determinar el tipo de objeto de lectura
+local function getReadingType(item)
+    local fullType = item:getFullType()
+    
+    -- Excluir periódicos, Fliers y Brochures
+    if fullType == "Base.Flier" or 
+       fullType == "Base.Brochure" or 
+       fullType:find("Newspaper") then  -- Excluye cualquier periódico
+        return nil
+    end
+    
+    -- Libros de habilidades
+    if SkillBook[item:getSkillTrained()] then
+        return "SkillBook"
+    end
+    
+    -- Libros de recetas
+    if item:getLearnedRecipes() and not item:getLearnedRecipes():isEmpty() then
+        return "RecipeBook"
+    end
+    
+    -- Novelas y libros con título
+    local modData = item:getModData()
+    if modData and (modData.literatureTitle or modData.printMedia) then
+        return "Novel"
+    end
+    
+    return nil
+end
+
+-- Función para mostrar pensamiento de lectura
+local function showReadingThought(readingType)
+    if not readingType or not readingThoughtKeys[readingType] then return end
+    
+    local keys = readingThoughtKeys[readingType]
+    if #keys > 0 then
+        local randomKey = keys[ZombRand(#keys) + 1]
+        local thoughtText = currentTranslations[randomKey] or randomKey
+        showThought(thoughtText)
+    end
 end
 
 -- Función que se ejecuta cada tick del juego
@@ -263,7 +312,22 @@ local function onGameStart()
     print("Living Survivor: Mod cargado correctamente")
     print("Living Survivor: Idioma detectado: " .. lang)
     print("Living Survivor: Detectando " .. moodleCount .. " moodles")
+    print("Living Survivor: Sistema de lectura activado")
     print("Living Survivor: Pulsa º para ver moodles activos")
+end
+
+-- Sobrescribir ISReadABook.perform para detectar lectura completada
+local originalISReadABookPerform = ISReadABook.perform
+function ISReadABook:perform()
+    originalISReadABookPerform(self)
+    
+    -- Verificar que el item existe y es literatura
+    if self.item and self.item:getCategory() == "Literature" then
+        local readingType = getReadingType(self.item)
+        if readingType then
+            showReadingThought(readingType)
+        end
+    end
 end
 
 -- Registrar eventos
