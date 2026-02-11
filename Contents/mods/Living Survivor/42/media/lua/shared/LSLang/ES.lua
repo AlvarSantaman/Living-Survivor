@@ -305,4 +305,28 @@ LivingSurvivorLang["ES"] = {
     Novel_2 = "Al menos me he distraido un rato",
     Novel_3 = "Necesitaba ese descanso mental",
     Novel_4 = "Eso me ha ayudado a despejarme",
+
+    -- Starting thoughts (contexto de confinamiento)
+    Lockdown_1 = "Cuanto tiempo mas tengo que estar en casa?",
+    Lockdown_2 = "El gobierno dijo que no salieramos",
+    Lockdown_3 = "Esto se esta volviendo insoportable",
+    Lockdown_4 = "Espero que esto acabe pronto",
+    
+    Phone_1 = "Las lineas siguen cortadas",
+    Phone_2 = "No puedo llamar a nadie",
+    Phone_3 = "Ojala pudiera hablar con alguien",
+    
+    News_1 = "A ver que dicen en las noticias",
+    News_2 = "Solo hablan de una fiebre",
+    News_3 = "No estan dando mucha informacion",
+    News_4 = "Esto no cuadra",
+    
+    Food_1 = "Se me esta acabando la comida",
+    Food_2 = "Deberia haber comprado mas",
+    Food_3 = "Espero que abran las tiendas pronto",
+    
+    Neighbors_1 = "No he visto a nadie en dias",
+    Neighbors_2 = "Que silencio hay en todas partes",
+    Neighbors_3 = "Donde esta todo el mundo?",
+    Neighbors_4 = "Esto es muy extrano",
 }

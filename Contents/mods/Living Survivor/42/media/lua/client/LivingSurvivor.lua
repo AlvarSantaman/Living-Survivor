@@ -15,6 +15,49 @@ local previousMoodleLevels = {}
 local panicLevel1LastTime = 0
 local PANIC_LEVEL1_COOLDOWN = 10 -- segundos
 
+-- Sistema de pensamientos iniciales
+local startingThoughts = {
+    ["Lockdown"] = {
+        "Lockdown_1",
+        "Lockdown_2",
+        "Lockdown_3",
+        "Lockdown_4"
+    },
+    ["Phone"] = {
+        "Phone_1",
+        "Phone_2",
+        "Phone_3",
+    },
+    ["News"] = {
+        "News_1",
+        "News_2",
+        "News_3",
+        "News_4" 
+    },
+    ["Food"] = {
+        "Food_1",
+        "Food_2",
+        "Food_3",
+    },
+    ["Neighbors"] = {
+        "Neighbors_1",
+        "Neighbors_2",
+        "Neighbors_3",
+        "Neighbors_4"
+    }
+}
+
+local startingThoughtsActive = false
+local thoughtsStarted = false
+local gameStartTime = 0
+local thoughtTimer = 0
+local currentThoughtLine = nil
+local currentThoughtIndex = 1
+local initialBuilding = nil
+
+local THOUGHT_START_DELAY = 10 -- segundos para empezar
+local THOUGHT_INTERVAL = 6 -- segundos entre frases
+
 -- Definición de claves para cada moodle
 local moodleThoughtKeys = {
     ["Endurance"] = {
@@ -194,7 +237,7 @@ local function getReadingType(item)
     -- Excluir periódicos, Fliers y Brochures
     if fullType == "Base.Flier" or 
        fullType == "Base.Brochure" or 
-       fullType:find("Newspaper") then  -- Excluye cualquier periódico
+       fullType:find("Newspaper") then
         return nil
     end
     
@@ -229,9 +272,118 @@ local function showReadingThought(readingType)
     end
 end
 
+-- Verificar si el jugador está fuera del edificio inicial
+local function isOutsideInitialBuilding()
+    if not initialBuilding then return true end
+    if not player then return true end
+    
+    local currentBuilding = player:getBuilding()
+    return currentBuilding ~= initialBuilding
+end
+
+-- Verificar si un zombie puede ver al jugador
+local function isSpottedByZombie()
+    if not player then return false end
+    
+    local cell = player:getCell()
+    if not cell then return false end
+    
+    local zombies = cell:getZombieList()
+    if not zombies or zombies:size() == 0 then return false end
+    
+    for i = 0, zombies:size() - 1 do
+        local zombie = zombies:get(i)
+        if zombie and zombie:getTarget() == player then
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- Detener pensamientos iniciales
+local function stopStartingThoughts(reason)
+    if startingThoughtsActive then
+        startingThoughtsActive = false
+        print("Living Survivor: Starting thoughts stopped - " .. reason)
+    end
+end
+
+-- Iniciar línea de pensamientos
+local function startThoughtLine()
+    -- Elegir línea aleatoria
+    local lineNames = {"Lockdown", "Phone", "News", "Food", "Neighbors"}
+    local randomLine = lineNames[ZombRand(#lineNames) + 1]
+    
+    currentThoughtLine = randomLine
+    currentThoughtIndex = 1
+    startingThoughtsActive = true
+    thoughtsStarted = true
+    
+    print("Living Survivor: Starting thought line: " .. randomLine)
+    
+    -- Mostrar primer pensamiento inmediatamente
+    local thoughtKey = startingThoughts[currentThoughtLine][currentThoughtIndex]
+    local thoughtText = currentTranslations[thoughtKey]
+    if thoughtText then
+        showThought(thoughtText)
+    end
+    
+    currentThoughtIndex = currentThoughtIndex + 1
+end
+
+-- Procesar pensamientos iniciales
+local function updateStartingThoughts()
+    if not player or not player:isAlive() then return end
+    
+    local currentTime = os.time()
+    
+    -- Si no han empezado y han pasado 10 segundos, iniciar
+    if not thoughtsStarted and (currentTime - gameStartTime >= THOUGHT_START_DELAY) then
+        startThoughtLine()
+        thoughtTimer = currentTime
+        return
+    end
+    
+    -- Si están activos, gestionar la secuencia
+    if startingThoughtsActive then
+        -- Verificar condiciones de parada
+        if isOutsideInitialBuilding() then
+            stopStartingThoughts("Left initial building")
+            return
+        end
+        
+        if isSpottedByZombie() then
+            stopStartingThoughts("Spotted by zombie")
+            return
+        end
+        
+        -- Mostrar siguiente pensamiento cada 5 segundos
+        if currentTime - thoughtTimer >= THOUGHT_INTERVAL then
+            thoughtTimer = currentTime
+            
+            local thoughts = startingThoughts[currentThoughtLine]
+            if currentThoughtIndex <= #thoughts then
+                local thoughtKey = thoughts[currentThoughtIndex]
+                local thoughtText = currentTranslations[thoughtKey]
+                if thoughtText then
+                    showThought(thoughtText)
+                end
+                currentThoughtIndex = currentThoughtIndex + 1
+            else
+                -- Línea completada naturalmente
+                stopStartingThoughts("Line completed")
+            end
+        end
+    end
+end
+
 -- Función que se ejecuta cada tick del juego
 local function onPlayerUpdate()
     if not player or not player:isAlive() then return end
+    
+    -- Sistema de pensamientos iniciales
+    updateStartingThoughts()
     
     -- Revisar cada moodle
     for moodleName, thoughtKeys in pairs(moodleThoughtKeys) do
@@ -282,6 +434,15 @@ local function onKeyPressed(key)
                     print(moodleName .. ": Nivel " .. level)
                 end
             end
+            
+            -- Info de pensamientos iniciales
+            print("Thoughts started: " .. tostring(thoughtsStarted))
+            print("Thoughts active: " .. tostring(startingThoughtsActive))
+            if currentThoughtLine then
+                print("Current line: " .. currentThoughtLine .. " [" .. currentThoughtIndex .. "]")
+            end
+            print("Outside building: " .. tostring(isOutsideInitialBuilding()))
+            print("Spotted by zombie: " .. tostring(isSpottedByZombie()))
             print("============================")
         end
     end
@@ -290,8 +451,17 @@ end
 -- Función que se ejecuta al iniciar el juego
 local function onGameStart()
     player = getPlayer()
-    previousMoodleLevels = {} -- Reset al iniciar
-    panicLevel1LastTime = 0 -- Reset del cooldown de Panic
+    previousMoodleLevels = {}
+    panicLevel1LastTime = 0
+    
+    -- Inicializar sistema de pensamientos iniciales
+    gameStartTime = os.time()
+    startingThoughtsActive = false
+    thoughtsStarted = false
+    currentThoughtLine = nil
+    currentThoughtIndex = 1
+    thoughtTimer = 0
+    initialBuilding = player:getBuilding()
 
     -- Detectar idioma del juego y cargar traducciones
     local lang = "EN"
@@ -313,7 +483,8 @@ local function onGameStart()
     print("Living Survivor: Idioma detectado: " .. lang)
     print("Living Survivor: Detectando " .. moodleCount .. " moodles")
     print("Living Survivor: Sistema de lectura activado")
-    print("Living Survivor: Pulsa º para ver moodles activos")
+    print("Living Survivor: Sistema de pensamientos iniciales activado")
+    print("Living Survivor: Pulsa º para ver estado del mod")
 end
 
 -- Sobrescribir ISReadABook.perform para detectar lectura completada
