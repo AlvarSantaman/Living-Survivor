@@ -12,7 +12,7 @@ local previousMoodleLevels = {}
 local panicLevel1LastTime = 0
 local PANIC_LEVEL1_COOLDOWN = 10 -- segundos
 
--- Sistema de pensamientos iniciales
+-- Sistema de pensamientos iniciales (lockdown)
 local startingThoughts = {
     ["Lockdown"] = {
         "Lockdown_1",
@@ -54,6 +54,21 @@ local initialBuilding = nil
 
 local THOUGHT_START_DELAY = 10 -- segundos para empezar
 local THOUGHT_INTERVAL = 6 -- segundos entre frases
+
+-- Sistema de pensamientos "Outside" (al salir de casa)
+local outsideThoughts = {
+    "Outside_1",
+    "Outside_2",
+    "Outside_3",
+    "Outside_4"
+}
+
+local outsideThoughtsState = "waiting" -- Estados: "waiting", "counting", "active", "completed", "cancelled"
+local timeLeftInitialBuilding = 0
+local outsideThoughtTimer = 0
+local currentOutsideThoughtIndex = 1
+local OUTSIDE_START_DELAY = 10 -- segundos fuera de casa para activar
+local OUTSIDE_THOUGHT_INTERVAL = 6 -- segundos entre frases
 
 -- Definición de claves para cada moodle
 local moodleThoughtKeys = {
@@ -298,7 +313,7 @@ local function isSpottedByZombie()
     return false
 end
 
--- Detener pensamientos iniciales
+-- Detener pensamientos iniciales (lockdown)
 local function stopStartingThoughts(reason)
     if startingThoughtsActive then
         startingThoughtsActive = false
@@ -306,7 +321,7 @@ local function stopStartingThoughts(reason)
     end
 end
 
--- Iniciar línea de pensamientos
+-- Iniciar línea de pensamientos (lockdown)
 local function startThoughtLine()
     -- Elegir línea aleatoria
     local lineNames = {"Lockdown", "Phone", "News", "Food", "Neighbors"}
@@ -326,7 +341,7 @@ local function startThoughtLine()
     currentThoughtIndex = currentThoughtIndex + 1
 end
 
--- Procesar pensamientos iniciales
+-- Procesar pensamientos iniciales (lockdown)
 local function updateStartingThoughts()
     if not player or not player:isAlive() then return end
     
@@ -369,12 +384,102 @@ local function updateStartingThoughts()
     end
 end
 
+-- Iniciar pensamientos "Outside"
+local function startOutsideThoughts()
+    outsideThoughtsState = "active"
+    currentOutsideThoughtIndex = 1
+    
+    print("Living Survivor: Outside thoughts started")
+    
+    -- Mostrar primer pensamiento inmediatamente
+    local thoughtKey = outsideThoughts[currentOutsideThoughtIndex]
+    showThought(getText("IGUI_LivingSurvivor_" .. thoughtKey))
+    
+    currentOutsideThoughtIndex = currentOutsideThoughtIndex + 1
+    outsideThoughtTimer = os.time()
+end
+
+-- Cancelar pensamientos "Outside"
+local function cancelOutsideThoughts(reason)
+    if outsideThoughtsState ~= "cancelled" and outsideThoughtsState ~= "completed" then
+        outsideThoughtsState = "cancelled"
+        print("Living Survivor: Outside thoughts cancelled - " .. reason)
+    end
+end
+
+-- Procesar pensamientos "Outside"
+local function updateOutsideThoughts()
+    if not player or not player:isAlive() then return end
+    
+    -- Si ya están completados o cancelados, no hacer nada
+    if outsideThoughtsState == "completed" or outsideThoughtsState == "cancelled" then
+        return
+    end
+    
+    local currentTime = os.time()
+    local isOutside = isOutsideInitialBuilding()
+    
+    -- Verificar si un zombie lo detecta (cancela en cualquier estado)
+    if isSpottedByZombie() then
+        cancelOutsideThoughts("Spotted by zombie")
+        return
+    end
+    
+    -- Estado: esperando a que salga por primera vez
+    if outsideThoughtsState == "waiting" then
+        if isOutside then
+            -- Salió de casa, empezar a contar
+            outsideThoughtsState = "counting"
+            timeLeftInitialBuilding = currentTime
+            print("Living Survivor: Player left initial building, counting started")
+        end
+        return
+    end
+    
+    -- Estado: contando 10 segundos fuera
+    if outsideThoughtsState == "counting" then
+        if not isOutside then
+            -- Volvió a entrar, resetear
+            outsideThoughtsState = "waiting"
+            print("Living Survivor: Player returned to initial building, countdown reset")
+            return
+        end
+        
+        -- Verificar si han pasado 10 segundos fuera
+        if currentTime - timeLeftInitialBuilding >= OUTSIDE_START_DELAY then
+            startOutsideThoughts()
+        end
+        return
+    end
+    
+    -- Estado: activo (mostrando pensamientos)
+    if outsideThoughtsState == "active" then
+        -- Mostrar siguiente pensamiento cada 6 segundos
+        if currentTime - outsideThoughtTimer >= OUTSIDE_THOUGHT_INTERVAL then
+            outsideThoughtTimer = currentTime
+            
+            if currentOutsideThoughtIndex <= #outsideThoughts then
+                local thoughtKey = outsideThoughts[currentOutsideThoughtIndex]
+                showThought(getText("IGUI_LivingSurvivor_" .. thoughtKey))
+                currentOutsideThoughtIndex = currentOutsideThoughtIndex + 1
+            else
+                -- Línea completada
+                outsideThoughtsState = "completed"
+                print("Living Survivor: Outside thoughts completed")
+            end
+        end
+    end
+end
+
 -- Función que se ejecuta cada tick del juego
 local function onPlayerUpdate()
     if not player or not player:isAlive() then return end
     
-    -- Sistema de pensamientos iniciales
+    -- Sistema de pensamientos iniciales (lockdown)
     updateStartingThoughts()
+    
+    -- Sistema de pensamientos "Outside"
+    updateOutsideThoughts()
     
     -- Revisar cada moodle
     for moodleName, thoughtKeys in pairs(moodleThoughtKeys) do
@@ -424,11 +529,22 @@ local function onKeyPressed(key)
             end
             
             -- Info de pensamientos iniciales
-            print("Thoughts started: " .. tostring(thoughtsStarted))
-            print("Thoughts active: " .. tostring(startingThoughtsActive))
+            print("Lockdown thoughts started: " .. tostring(thoughtsStarted))
+            print("Lockdown thoughts active: " .. tostring(startingThoughtsActive))
             if currentThoughtLine then
-                print("Current line: " .. currentThoughtLine .. " [" .. currentThoughtIndex .. "]")
+                print("Lockdown current line: " .. currentThoughtLine .. " [" .. currentThoughtIndex .. "]")
             end
+            
+            -- Info de pensamientos "Outside"
+            print("Outside thoughts state: " .. outsideThoughtsState)
+            if outsideThoughtsState == "counting" then
+                local timeOutside = os.time() - timeLeftInitialBuilding
+                print("Time outside: " .. timeOutside .. "s / " .. OUTSIDE_START_DELAY .. "s")
+            end
+            if outsideThoughtsState == "active" then
+                print("Outside current index: " .. currentOutsideThoughtIndex)
+            end
+            
             print("Outside building: " .. tostring(isOutsideInitialBuilding()))
             print("Spotted by zombie: " .. tostring(isSpottedByZombie()))
             print("============================")
@@ -442,7 +558,7 @@ local function onGameStart()
     previousMoodleLevels = {}
     panicLevel1LastTime = 0
     
-    -- Inicializar sistema de pensamientos iniciales
+    -- Inicializar sistema de pensamientos iniciales (lockdown)
     gameStartTime = os.time()
     startingThoughtsActive = false
     thoughtsStarted = false
@@ -450,6 +566,12 @@ local function onGameStart()
     currentThoughtIndex = 1
     thoughtTimer = 0
     initialBuilding = player:getBuilding()
+    
+    -- Inicializar sistema de pensamientos "Outside"
+    outsideThoughtsState = "waiting"
+    timeLeftInitialBuilding = 0
+    outsideThoughtTimer = 0
+    currentOutsideThoughtIndex = 1
 
     -- Contar moodles
     local moodleCount = 0
@@ -461,6 +583,7 @@ local function onGameStart()
     print("Living Survivor: Detectando " .. moodleCount .. " moodles")
     print("Living Survivor: Sistema de lectura activado")
     print("Living Survivor: Sistema de pensamientos iniciales activado")
+    print("Living Survivor: Sistema de pensamientos Outside activado")
     print("Living Survivor: Pulsa º para ver estado del mod")
 end
 

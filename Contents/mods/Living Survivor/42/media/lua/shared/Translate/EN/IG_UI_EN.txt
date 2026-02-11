@@ -291,4 +291,8 @@ IGUI_EN = {
     IGUI_LivingSurvivor_Neighbors_2 = "Everything's so quiet",
     IGUI_LivingSurvivor_Neighbors_3 = "Where is everyone?",
     IGUI_LivingSurvivor_Neighbors_4 = "This is too strange",
+    IGUI_LivingSurvivor_Outside_1 = "Where is everyone?",
+    IGUI_LivingSurvivor_Outside_2 = "The streets are completely empty",
+    IGUI_LivingSurvivor_Outside_3 = "This silence is eerie",
+    IGUI_LivingSurvivor_Outside_4 = "Something terrible has happened here",
 }
