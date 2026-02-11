@@ -5,9 +5,6 @@
 -- Referencia al jugador
 local player = nil
 
--- Traducciones activas para el idioma actual
-local currentTranslations = nil
-
 -- Estados anteriores de todos los moodles para detectar cambios
 local previousMoodleLevels = {}
 
@@ -267,7 +264,7 @@ local function showReadingThought(readingType)
     local keys = readingThoughtKeys[readingType]
     if #keys > 0 then
         local randomKey = keys[ZombRand(#keys) + 1]
-        local thoughtText = currentTranslations[randomKey] or randomKey
+        local thoughtText = getText("IGUI_LivingSurvivor_" .. randomKey)
         showThought(thoughtText)
     end
 end
@@ -324,10 +321,7 @@ local function startThoughtLine()
     
     -- Mostrar primer pensamiento inmediatamente
     local thoughtKey = startingThoughts[currentThoughtLine][currentThoughtIndex]
-    local thoughtText = currentTranslations[thoughtKey]
-    if thoughtText then
-        showThought(thoughtText)
-    end
+    showThought(getText("IGUI_LivingSurvivor_" .. thoughtKey))
     
     currentThoughtIndex = currentThoughtIndex + 1
 end
@@ -358,17 +352,14 @@ local function updateStartingThoughts()
             return
         end
         
-        -- Mostrar siguiente pensamiento cada 5 segundos
+        -- Mostrar siguiente pensamiento cada 6 segundos
         if currentTime - thoughtTimer >= THOUGHT_INTERVAL then
             thoughtTimer = currentTime
             
             local thoughts = startingThoughts[currentThoughtLine]
             if currentThoughtIndex <= #thoughts then
                 local thoughtKey = thoughts[currentThoughtIndex]
-                local thoughtText = currentTranslations[thoughtKey]
-                if thoughtText then
-                    showThought(thoughtText)
-                end
+                showThought(getText("IGUI_LivingSurvivor_" .. thoughtKey))
                 currentThoughtIndex = currentThoughtIndex + 1
             else
                 -- Línea completada naturalmente
@@ -409,10 +400,7 @@ local function onPlayerUpdate()
                 if levelKeys and #levelKeys > 0 then
                     -- Seleccionar clave aleatoria del grado actual
                     local randomKey = levelKeys[ZombRand(#levelKeys) + 1]
-                    
-                    -- Obtener texto traducido desde la tabla de idioma
-                    local thoughtText = currentTranslations[randomKey] or randomKey
-                    
+                    local thoughtText = getText("IGUI_LivingSurvivor_" .. randomKey)
                     showThought(thoughtText)
                 end
             end
@@ -463,16 +451,6 @@ local function onGameStart()
     thoughtTimer = 0
     initialBuilding = player:getBuilding()
 
-    -- Detectar idioma del juego y cargar traducciones
-    local lang = "EN"
-    if Translator and Translator.getLanguage then
-        local ok, result = pcall(function()
-            return tostring(Translator.getLanguage():name())
-        end)
-        if ok and result then lang = result end
-    end
-    currentTranslations = LivingSurvivorLang[lang] or LivingSurvivorLang["EN"]
-
     -- Contar moodles
     local moodleCount = 0
     for _ in pairs(moodleThoughtKeys) do
@@ -480,7 +458,6 @@ local function onGameStart()
     end
 
     print("Living Survivor: Mod cargado correctamente")
-    print("Living Survivor: Idioma detectado: " .. lang)
     print("Living Survivor: Detectando " .. moodleCount .. " moodles")
     print("Living Survivor: Sistema de lectura activado")
     print("Living Survivor: Sistema de pensamientos iniciales activado")
