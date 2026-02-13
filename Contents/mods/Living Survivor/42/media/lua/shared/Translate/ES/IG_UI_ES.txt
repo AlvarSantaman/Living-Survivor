@@ -329,4 +329,10 @@ IGUI_ES = {
     IGUI_LivingSurvivor_Outside_2 = "Las calles estan completamente vacias",
     IGUI_LivingSurvivor_Outside_3 = "Este silencio es espeluznante",
     IGUI_LivingSurvivor_Outside_4 = "Algo terrible ha pasado aqui",
+
+    -- First panic
+    IGUI_LivingSurvivor_FirstPanic_1 = "Que demonios es esa cosa?!",
+    IGUI_LivingSurvivor_FirstPanic_2 = "Es eso... una persona?",
+    IGUI_LivingSurvivor_FirstPanic_3 = "Dios mio, viene hacia mi",
+    IGUI_LivingSurvivor_FirstPanic_4 = "Esto no puede ser real, esto no puede estar pasando",
 }

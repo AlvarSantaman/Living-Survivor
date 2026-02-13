@@ -70,6 +70,24 @@ local currentOutsideThoughtIndex = 1
 local OUTSIDE_START_DELAY = 10 -- segundos fuera de casa para activar
 local OUTSIDE_THOUGHT_INTERVAL = 6 -- segundos entre frases
 
+-- Sistema de pensamientos "FirstPanic" (primer contacto con zombies)
+local firstPanicThoughts = {
+    "FirstPanic_1",
+    "FirstPanic_2",
+    "FirstPanic_3",
+    "FirstPanic_4"
+}
+
+local firstPanicState = "waiting" -- Estados: "waiting", "active", "completed", "cancelled", "cooldown"
+local firstPanicThoughtTimer = 0
+local currentFirstPanicIndex = 1
+local firstPanicCompletedTime = 0
+local FIRST_PANIC_INTERVAL = 6 -- segundos entre frases
+local FIRST_PANIC_COOLDOWN = 10 -- segundos después de completar antes de permitir pensamientos normales de Panic
+
+-- Salud anterior para detectar ataques
+local previousHealth = 100
+
 -- Definición de claves para cada moodle
 local moodleThoughtKeys = {
     ["Endurance"] = {
@@ -313,6 +331,25 @@ local function isSpottedByZombie()
     return false
 end
 
+-- Detectar si el jugador ha sido atacado (salud baja)
+local function wasPlayerAttacked()
+    if not player then return false end
+    
+    local bodyDamage = player:getBodyDamage()
+    if not bodyDamage then return false end
+    
+    local currentHealth = bodyDamage:getOverallBodyHealth()
+    
+    -- Si la salud bajó, fue atacado
+    if currentHealth < previousHealth then
+        previousHealth = currentHealth
+        return true
+    end
+    
+    previousHealth = currentHealth
+    return false
+end
+
 -- Detener pensamientos iniciales (lockdown)
 local function stopStartingThoughts(reason)
     if startingThoughtsActive then
@@ -471,6 +508,76 @@ local function updateOutsideThoughts()
     end
 end
 
+-- Iniciar pensamientos "FirstPanic"
+local function startFirstPanicThoughts()
+    firstPanicState = "active"
+    currentFirstPanicIndex = 1
+    
+    print("Living Survivor: FirstPanic thoughts started")
+    
+    -- Mostrar primer pensamiento inmediatamente
+    local thoughtKey = firstPanicThoughts[currentFirstPanicIndex]
+    showThought(getText("IGUI_LivingSurvivor_" .. thoughtKey))
+    
+    currentFirstPanicIndex = currentFirstPanicIndex + 1
+    firstPanicThoughtTimer = os.time()
+end
+
+-- Cancelar pensamientos "FirstPanic"
+local function cancelFirstPanicThoughts(reason)
+    if firstPanicState == "active" then
+        firstPanicState = "cancelled"
+        print("Living Survivor: FirstPanic thoughts cancelled - " .. reason)
+    end
+end
+
+-- Procesar pensamientos "FirstPanic"
+local function updateFirstPanicThoughts()
+    if not player or not player:isAlive() then return end
+    
+    -- Si ya están completados o cancelados, no hacer nada
+    if firstPanicState == "completed" or firstPanicState == "cancelled" then
+        return
+    end
+    
+    -- Si está en cooldown, verificar si ya pasaron los 10 segundos
+    if firstPanicState == "cooldown" then
+        local currentTime = os.time()
+        if currentTime - firstPanicCompletedTime >= FIRST_PANIC_COOLDOWN then
+            firstPanicState = "completed"
+            print("Living Survivor: FirstPanic cooldown finished, normal Panic thoughts enabled")
+        end
+        return
+    end
+    
+    -- Estado: activo (mostrando pensamientos)
+    if firstPanicState == "active" then
+        -- Verificar si fue atacado
+        if wasPlayerAttacked() then
+            cancelFirstPanicThoughts("Player was attacked")
+            return
+        end
+        
+        local currentTime = os.time()
+        
+        -- Mostrar siguiente pensamiento cada 6 segundos
+        if currentTime - firstPanicThoughtTimer >= FIRST_PANIC_INTERVAL then
+            firstPanicThoughtTimer = currentTime
+            
+            if currentFirstPanicIndex <= #firstPanicThoughts then
+                local thoughtKey = firstPanicThoughts[currentFirstPanicIndex]
+                showThought(getText("IGUI_LivingSurvivor_" .. thoughtKey))
+                currentFirstPanicIndex = currentFirstPanicIndex + 1
+            else
+                -- Línea completada, iniciar cooldown
+                firstPanicState = "cooldown"
+                firstPanicCompletedTime = currentTime
+                print("Living Survivor: FirstPanic thoughts completed, starting cooldown")
+            end
+        end
+    end
+end
+
 -- Función que se ejecuta cada tick del juego
 local function onPlayerUpdate()
     if not player or not player:isAlive() then return end
@@ -481,6 +588,9 @@ local function onPlayerUpdate()
     -- Sistema de pensamientos "Outside"
     updateOutsideThoughts()
     
+    -- Sistema de pensamientos "FirstPanic"
+    updateFirstPanicThoughts()
+    
     -- Revisar cada moodle
     for moodleName, thoughtKeys in pairs(moodleThoughtKeys) do
         local currentLevel = getMoodleLevel(moodleName)
@@ -489,18 +599,34 @@ local function onPlayerUpdate()
         -- Solo mostrar pensamiento si el nivel SUBE (no cuando baja)
         if currentLevel > previousLevel and currentLevel > 0 then
             
-            -- Aplicar cooldown solo para Panic nivel 1
-            local shouldShow = true
-            if moodleName == "Panic" and currentLevel == 1 then
-                local currentTime = os.time()
-                if currentTime - panicLevel1LastTime < PANIC_LEVEL1_COOLDOWN then
-                    shouldShow = false
-                else
-                    panicLevel1LastTime = currentTime
+            local shouldShowThought = true
+            
+            -- LÓGICA ESPECIAL PARA PANIC
+            if moodleName == "Panic" then
+                -- Si es la primera vez que aparece Panic y estamos esperando
+                if previousLevel == 0 and firstPanicState == "waiting" then
+                    -- Activar FirstPanic en vez del pensamiento normal
+                    startFirstPanicThoughts()
+                    shouldShowThought = false
+                -- Si FirstPanic está activo o en cooldown, ignorar cambios de Panic
+                elseif firstPanicState == "active" or firstPanicState == "cooldown" then
+                    shouldShowThought = false
+                -- Si FirstPanic está completado, aplicar lógica normal de Panic con cooldown
+                elseif firstPanicState == "completed" then
+                    -- Solo para nivel 1
+                    if currentLevel == 1 then
+                        local currentTime = os.time()
+                        if currentTime - panicLevel1LastTime < PANIC_LEVEL1_COOLDOWN then
+                            shouldShowThought = false
+                        else
+                            panicLevel1LastTime = currentTime
+                        end
+                    end
                 end
             end
             
-            if shouldShow then
+            -- MOSTRAR PENSAMIENTO SI CORRESPONDE
+            if shouldShowThought then
                 local levelKeys = thoughtKeys[currentLevel]
                 if levelKeys and #levelKeys > 0 then
                     -- Seleccionar clave aleatoria del grado actual
@@ -545,8 +671,19 @@ local function onKeyPressed(key)
                 print("Outside current index: " .. currentOutsideThoughtIndex)
             end
             
+            -- Info de pensamientos "FirstPanic"
+            print("FirstPanic state: " .. firstPanicState)
+            if firstPanicState == "active" then
+                print("FirstPanic current index: " .. currentFirstPanicIndex)
+            end
+            if firstPanicState == "cooldown" then
+                local timeInCooldown = os.time() - firstPanicCompletedTime
+                print("FirstPanic cooldown: " .. timeInCooldown .. "s / " .. FIRST_PANIC_COOLDOWN .. "s")
+            end
+            
             print("Outside building: " .. tostring(isOutsideInitialBuilding()))
             print("Spotted by zombie: " .. tostring(isSpottedByZombie()))
+            print("Current health: " .. previousHealth)
             print("============================")
         end
     end
@@ -572,6 +709,18 @@ local function onGameStart()
     timeLeftInitialBuilding = 0
     outsideThoughtTimer = 0
     currentOutsideThoughtIndex = 1
+    
+    -- Inicializar sistema de pensamientos "FirstPanic"
+    firstPanicState = "waiting"
+    firstPanicThoughtTimer = 0
+    currentFirstPanicIndex = 1
+    firstPanicCompletedTime = 0
+    
+    -- Inicializar salud
+    local bodyDamage = player:getBodyDamage()
+    if bodyDamage then
+        previousHealth = bodyDamage:getOverallBodyHealth()
+    end
 
     -- Contar moodles
     local moodleCount = 0
@@ -584,6 +733,7 @@ local function onGameStart()
     print("Living Survivor: Sistema de lectura activado")
     print("Living Survivor: Sistema de pensamientos iniciales activado")
     print("Living Survivor: Sistema de pensamientos Outside activado")
+    print("Living Survivor: Sistema de pensamientos FirstPanic activado")
     print("Living Survivor: Pulsa º para ver estado del mod")
 end
 
