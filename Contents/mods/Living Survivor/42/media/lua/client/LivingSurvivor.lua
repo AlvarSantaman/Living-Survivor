@@ -12,6 +12,10 @@ local previousMoodleLevels = {}
 local panicLevel1LastTime = 0
 local PANIC_LEVEL1_COOLDOWN = 10 -- segundos
 
+-- Sistema de delay para pensamientos de moodles
+local pendingThoughts = {} -- Cola de pensamientos pendientes
+local MOODLE_THOUGHT_DELAY = 2 -- segundos de delay
+
 -- Sistema de pensamientos iniciales (lockdown)
 local startingThoughts = {
     ["Lockdown"] = {
@@ -235,6 +239,33 @@ local readingThoughtKeys = {
 local function showThought(text)
     if not player then return end
     player:Say(text)
+end
+
+-- Añadir un pensamiento a la cola con delay
+local function queueThought(text, delaySeconds)
+    table.insert(pendingThoughts, {
+        text = text,
+        showTime = os.time() + delaySeconds
+    })
+end
+
+-- Procesar cola de pensamientos pendientes
+local function processPendingThoughts()
+    local currentTime = os.time()
+    local i = 1
+    
+    while i <= #pendingThoughts do
+        local pending = pendingThoughts[i]
+        
+        if currentTime >= pending.showTime then
+            -- Mostrar el pensamiento
+            showThought(pending.text)
+            -- Eliminar de la cola
+            table.remove(pendingThoughts, i)
+        else
+            i = i + 1
+        end
+    end
 end
 
 -- Función para obtener el nivel de un moodle específico
@@ -582,6 +613,9 @@ end
 local function onPlayerUpdate()
     if not player or not player:isAlive() then return end
     
+    -- Procesar pensamientos pendientes
+    processPendingThoughts()
+    
     -- Sistema de pensamientos iniciales (lockdown)
     updateStartingThoughts()
     
@@ -632,7 +666,8 @@ local function onPlayerUpdate()
                     -- Seleccionar clave aleatoria del grado actual
                     local randomKey = levelKeys[ZombRand(#levelKeys) + 1]
                     local thoughtText = getText("IGUI_LivingSurvivor_" .. randomKey)
-                    showThought(thoughtText)
+                    -- Añadir a la cola con delay de 2 segundos
+                    queueThought(thoughtText, MOODLE_THOUGHT_DELAY)
                 end
             end
         end
@@ -681,6 +716,9 @@ local function onKeyPressed(key)
                 print("FirstPanic cooldown: " .. timeInCooldown .. "s / " .. FIRST_PANIC_COOLDOWN .. "s")
             end
             
+            -- Info de cola de pensamientos
+            print("Pending thoughts in queue: " .. #pendingThoughts)
+            
             print("Outside building: " .. tostring(isOutsideInitialBuilding()))
             print("Spotted by zombie: " .. tostring(isSpottedByZombie()))
             print("Current health: " .. previousHealth)
@@ -694,6 +732,9 @@ local function onGameStart()
     player = getPlayer()
     previousMoodleLevels = {}
     panicLevel1LastTime = 0
+    
+    -- Inicializar cola de pensamientos
+    pendingThoughts = {}
     
     -- Inicializar sistema de pensamientos iniciales (lockdown)
     gameStartTime = os.time()
@@ -734,6 +775,7 @@ local function onGameStart()
     print("Living Survivor: Sistema de pensamientos iniciales activado")
     print("Living Survivor: Sistema de pensamientos Outside activado")
     print("Living Survivor: Sistema de pensamientos FirstPanic activado")
+    print("Living Survivor: Sistema de delay de moodles activado (2s)")
     print("Living Survivor: Pulsa º para ver estado del mod")
 end
 
